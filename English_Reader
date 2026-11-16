@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>英文朗讀練習</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --text:#1d1d1f; --muted:#6b6b70; --border:#e2e2e0;
+  --accent:#2f6fed; --accent-soft:#e6eeff; --word:#ffd84d; --word-text:#1d1d1f; --sent:#eef3ff;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a; --panel:#1f2024; --text:#ececee; --muted:#9a9aa2; --border:#2f3036;
+    --accent:#6b9bff; --accent-soft:#25304a; --word:#e6b800; --word-text:#111; --sent:#232a3a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Segoe UI",system-ui,-apple-system,"Microsoft JhengHei",sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+select,textarea,button{font:inherit;color:inherit}
+select{width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+textarea{width:100%;min-height:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--panel);resize:vertical;line-height:1.6}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+button{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.rate{display:flex;align-items:center;gap:8px}
+.rate input{flex:1}
+.rate output{min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.warn{color:#c2410c}
+#reader{font-size:20px;line-height:1.9;min-height:80px}
+#reader p{margin:0 0 14px}
+.s{cursor:pointer;border-radius:6px;padding:2px 1px;transition:background .15s}
+.s:hover{background:var(--accent-soft)}
+.s.active{background:var(--sent)}
+.w.on{background:var(--word);color:var(--word-text);border-radius:4px}
+.empty{color:var(--muted);font-size:14px}
+.status{font-size:13px;color:var(--muted);margin-left:auto}
+.keys{font-size:12px;color:var(--muted)}
+kbd{border:1px solid var(--border);border-radius:4px;padding:0 5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>英文朗讀練習</h1>
+  <p class="sub">貼上文章 → 選聲音 → 播放。點任一句子即可單句重複（shadowing）。</p>
+
+  <div class="panel">
+    <div class="grid">
+      <div><label for="accent">口音</label><select id="accent"></select></div>
+      <div><label for="gender">性別</label>
+        <select id="gender">
+          <option value="all">全部</option>
+          <option value="f">女聲</option>
+          <option value="m">男聲</option>
+        </select></div>
+      <div style="grid-column:span 2;min-width:0"><label for="voice">聲音</label><select id="voice"></select></div>
+    </div>
+    <div class="grid" style="margin-top:12px">
+      <div style="grid-column:span 2"><label for="rate">語速</label>
+        <div class="rate"><input type="range" id="rate" min="0.5" max="1.5" step="0.05" value="1"><output id="rateOut">1.00x</output></div>
+        <div class="row" style="margin-top:6px">
+          <button data-rate="0.6">0.6x</button><button data-rate="0.8">0.8x</button><button data-rate="1">1.0x</button><button data-rate="1.2">1.2x</button>
+        </div>
+      </div>
+      <div><label for="repeat">單句重複次數</label>
+        <select id="repeat"><option>1</option><option>2</option><option selected>3</option><option>5</option><option value="0">無限</option></select></div>
+      <div><label for="gap">每次之間停頓（跟讀用）</label>
+        <select id="gap"><option value="0">0 秒</option><option value="1000">1 秒</option><option value="2000" selected>2 秒</option><option value="3000">3 秒</option><option value="5000">5 秒</option></select></div>
+    </div>
+    <div id="voiceNote" class="note"></div>
+  </div>
+
+  <div class="panel">
+    <label for="input">英文文章</label>
+    <textarea id="input" placeholder="Paste your English article here...">The early morning light spread slowly across the city. Coffee shops opened their doors, and the smell of fresh bread drifted into the street.
+
+"Could you recommend a good place for lunch?" she asked. He thought for a moment, then pointed to a small restaurant on the corner.</textarea>
+    <div class="row">
+      <button id="load" class="primary">載入文章</button>
+      <button id="clear">清空</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="margin-top:0;margin-bottom:12px">
+      <button id="play" class="primary">▶ 從頭播放</button>
+      <button id="pause">⏸ 暫停</button>
+      <button id="stop">⏹ 停止</button>
+      <span id="status" class="status">尚未播放</span>
+    </div>
+    <div id="reader"><div class="empty">按「載入文章」後，文字會顯示在這裡。</div></div>
+    <div class="keys" style="margin-top:8px"><kbd>Space</kbd> 播放/暫停　<kbd>←</kbd><kbd>→</kbd> 上/下一句（單句重複）　<kbd>Esc</kbd> 停止</div>
+  </div>
+</div>
+
+<script>
+(function(){
+const synth = window.speechSynthesis;
+const $ = id => document.getElementById(id);
+const ACCENTS = {
+  "en-US":"美式 (US)","en-GB":"英式 (UK)","en-AU":"澳洲 (AU)","en-IN":"印度 (IN)","en-IE":"愛爾蘭 (IE)",
+  "en-CA":"加拿大 (CA)","en-NZ":"紐西蘭 (NZ)","en-ZA":"南非 (ZA)","en-SG":"新加坡 (SG)","en-PH":"菲律賓 (PH)",
+  "en-HK":"香港 (HK)","en-KE":"肯亞 (KE)","en-NG":"奈及利亞 (NG)","en-TZ":"坦尚尼亞 (TZ)"
+};
+const FEMALE = /female|aria|jenny|michelle|ana\b|ava|emma|sonia|libby|maisie|mia|natasha|hayley|annette|carly|elsie|freya|joanne|kim|tina|emily|neerja|clara|molly|zira|hazel|susan|heera|catherine|linda|samantha|karen|moira|tessa|veena|fiona|victoria|allison|serena|kate|ashley|cora|elizabeth|jane|nancy|amber|sara|leah|luna|rosa|imogen|bella|abbi|hollie|olivia|ada|isla|leni|luna|yan\b|ezinne|asilia|imani|rehema|aashi|ananya|kavya|nicole|heather|grace|martha|siri female/i;
+const MALE = /\bmale|guy|christopher|eric|roger|steffan|ryan|thomas|william|prabhat|connor|mitchell|david|mark|george|james|ravi|daniel|alex\b|fred|rishi|aaron|tom\b|brian|andrew|davis|jason|tony|ken\b|liam|ethan|oliver|alfie|elliot|noah|darren|duncan|neil|kenneth|luke|chilemba|abeo|elimu|sam\b|wayne|tim\b|arthur|oscar|gordon|lee\b|aarav|kunal|rehaan|siri male/i;
+
+function gender(v){ const n=v.name; if(MALE.test(n) && !/female/i.test(n)) return "m"; if(FEMALE.test(n)) return "f"; return "?"; }
+function langKey(v){ return (v.lang||"").replace("_","-"); }
+
+let voices=[];
+function loadVoices(){
+  voices = synth.getVoices().filter(v=>/^en[-_]/i.test(v.lang));
+  const sel=$("accent"), prev=sel.value;
+  const langs=[...new Set(voices.map(langKey))].sort((a,b)=>(a==="en-US"?-1:b==="en-US"?1:a.localeCompare(b)));
+  sel.innerHTML='<option value="all">全部口音</option>'+langs.map(l=>`<option value="${l}">${ACCENTS[l]||l}</option>`).join("");
+  sel.value = langs.includes(prev)?prev:(langs.includes("en-US")?"en-US":"all");
+  fillVoices();
+  const natural=voices.filter(v=>/natural|online/i.test(v.name)).length;
+  $("voiceNote").innerHTML = voices.length
+    ? `偵測到 ${voices.length} 個英文聲音（${langs.length} 種口音）。`+(natural?` 其中 ${natural} 個是 Natural 高品質聲音，推薦使用。`:` <span class="warn">沒有偵測到 Natural 聲音——建議用 Microsoft Edge 開啟此檔案，會多出很多接近真人的聲音。</span>`)
+    : `<span class="warn">尚未偵測到英文聲音。請用 Microsoft Edge 或 Chrome 開啟，或稍等幾秒。</span>`;
+}
+function fillVoices(){
+  const a=$("accent").value, g=$("gender").value, sel=$("voice"), prev=sel.value;
+  const list=voices.filter(v=>(a==="all"||langKey(v)===a)&&(g==="all"||gender(v)===g))
+    .sort((x,y)=>(/natural/i.test(y.name)-/natural/i.test(x.name))||x.name.localeCompare(y.name));
+  sel.innerHTML = list.length ? list.map(v=>{
+    const gl={f:"女",m:"男","?":"?"}[gender(v)];
+    const nm=v.name.replace(/^Microsoft\s+/,"").replace(/\s+Online \(Natural\)/," ★Natural");
+    return `<option value="${v.voiceURI}">[${gl}] ${nm} — ${ACCENTS[langKey(v)]||v.lang}</option>`;
+  }).join("") : '<option value="">（此條件下沒有聲音）</option>';
+  if(list.some(v=>v.voiceURI===prev)) sel.value=prev;
+}
+function currentVoice(){ return voices.find(v=>v.voiceURI===$("voice").value)||null; }
+loadVoices();
+if(synth.onvoiceschanged!==undefined) synth.onvoiceschanged=loadVoices;
+setTimeout(loadVoices,800);
+$("accent").onchange=fillVoices; $("gender").onchange=fillVoices;
+
+const rate=$("rate");
+function setRate(r){ rate.value=r; $("rateOut").textContent=Number(r).toFixed(2)+"x"; }
+rate.oninput=()=>setRate(rate.value);
+document.querySelectorAll("[data-rate]").forEach(b=>b.onclick=()=>setRate(b.dataset.rate));
+
+// ---------- text parsing ----------
+let sentences=[];
+function splitSentences(p){
+  if(window.Intl && Intl.Segmenter){
+    return [...new Intl.Segmenter("en",{granularity:"sentence"}).segment(p)].map(s=>s.segment.trim()).filter(Boolean);
+  }
+  return (p.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(Boolean);
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function build(){
+  stop();
+  const txt=$("input").value.trim(), reader=$("reader");
+  sentences=[]; reader.innerHTML="";
+  if(!txt){ reader.innerHTML='<div class="empty">請先貼上英文文章。</div>'; return; }
+  txt.split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).forEach(p=>{
+    const pe=document.createElement("p");
+    splitSentences(p).forEach(st=>{
+      const idx=sentences.length, se=document.createElement("span");
+      se.className="s"; se.dataset.i=idx;
+      const words=[]; let html="", last=0, m; const re=/\S+/g;
+      while((m=re.exec(st))){
+        html+=esc(st.slice(last,m.index))+`<span class="w" data-w="${words.length}">${esc(m[0])}</span>`;
+        words.push({start:m.index,end:m.index+m[0].length}); last=re.lastIndex;
+      }
+      se.innerHTML=html;
+      words.forEach((w,k)=>w.el=se.querySelector(`[data-w="${k}"]`));
+      sentences.push({text:st,el:se,words});
+      pe.appendChild(se); pe.appendChild(document.createTextNode(" "));
+    });
+    reader.appendChild(pe);
+  });
+  $("status").textContent=`共 ${sentences.length} 句`;
+}
+$("load").onclick=build;
+$("clear").onclick=()=>{ $("input").value=""; build(); };
+$("reader").addEventListener("click",e=>{
+  const s=e.target.closest(".s"); if(s) playSingle(+s.dataset.i);
+});
+
+// ---------- playback ----------
+let token=0, cur=-1, mode=null, paused=false, timer=null;
+function clearMarks(){ document.querySelectorAll(".s.active").forEach(e=>e.classList.remove("active")); document.querySelectorAll(".w.on").forEach(e=>e.classList.remove("on")); }
+function stop(){ token++; clearTimeout(timer); synth.cancel(); paused=false; mode=null; clearMarks(); $("pause").textContent="⏸ 暫停"; if(sentences.length) $("status").textContent="已停止"; }
+function speakSentence(i,onDone){
+  const my=token, s=sentences[i]; if(!s) return;
+  cur=i; clearMarks(); s.el.classList.add("active");
+  s.el.scrollIntoView({block:"nearest",behavior:"smooth"});
+  const u=new SpeechSynthesisUtterance(s.text);
+  const v=currentVoice(); if(v){u.voice=v;u.lang=v.lang;} else u.lang="en-US";
+  u.rate=+rate.value;
+  u.onboundary=e=>{
+    if(my!==token || (e.name && e.name!=="word")) return;
+    const ci=e.charIndex; let hit=null;
+    for(const w of s.words){ if(w.start<=ci) hit=w; else break; }
+    s.words.forEach(w=>w.el.classList.toggle("on",w===hit));
+  };
+  u.onend=()=>{ if(my!==token) return; s.words.forEach(w=>w.el.classList.remove("on")); onDone&&onDone(); };
+  u.onerror=e=>{ if(my!==token) return; if(e.error!=="interrupted"&&e.error!=="canceled") $("status").textContent="播放錯誤："+e.error; };
+  synth.speak(u);
+}
+function playAll(from){
+  stop(); if(!sentences.length) build(); if(!sentences.length) return;
+  mode="all"; const my=token;
+  const next=i=>{ if(my!==token) return;
+    if(i>=sentences.length){ mode=null; clearMarks(); $("status").textContent="播放完畢"; return; }
+    $("status").textContent=`播放中：第 ${i+1} / ${sentences.length} 句`;
+    speakSentence(i,()=>next(i+1)); };
+  next(from||0);
+}
+function playSingle(i){
+  if(i<0||i>=sentences.length) return;
+  stop(); mode="single"; const my=token;
+  const total=+$("repeat").value, gap=+$("gap").value; let n=0;
+  const once=()=>{ if(my!==token) return; n++;
+    $("status").textContent=`單句重複：第 ${i+1} 句（${n}${total?` / ${total}`:" / ∞"}）`;
+    speakSentence(i,()=>{ if(my!==token) return;
+      if(total && n>=total){ mode=null; $("status").textContent=`第 ${i+1} 句重複完畢`; return; }
+      timer=setTimeout(once,gap); }); };
+  once();
+}
+function togglePause(){
+  if(!synth.speaking && !paused) return;
+  if(paused){ synth.resume(); paused=false; $("pause").textContent="⏸ 暫停"; }
+  else { synth.pause(); paused=true; $("pause").textContent="▶ 繼續"; }
+}
+$("play").onclick=()=>playAll(0);
+$("pause").onclick=togglePause;
+$("stop").onclick=stop;
+document.addEventListener("keydown",e=>{
+  if(["TEXTAREA","SELECT","INPUT"].includes(document.activeElement.tagName)) return;
+  if(e.code==="Space"){ e.preventDefault(); if(synth.speaking||paused) togglePause(); else playAll(Math.max(cur,0)); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); playSingle(Math.min(cur+1,sentences.length-1)); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); playSingle(Math.max(cur-1,0)); }
+  else if(e.key==="Escape") stop();
+});
+if(!synth){ $("voiceNote").innerHTML='<span class="warn">這個瀏覽器不支援語音朗讀，請改用 Microsoft Edge 或 Chrome。</span>'; }
+build();
+})();
+</script>
+</body>
+</html>
